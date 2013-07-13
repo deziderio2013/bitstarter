@@ -24,29 +24,42 @@ References:
 
 */
 
+var rest               = require( 'restler' ) ;
 var fs                 = require( 'fs' ) ;
 var program            = require( 'commander' ) ;
 var cheerio            = require( 'cheerio' ) ;
 var HTMLFILE_DEFAULT   = "index.html" ;
 var CHECKSFILE_DEFAULT = "checks.json" ;
+var URL_DEFAULT        = "http://serene-reaches-5075.herokuapp.com/"
+
+
+var assertURL          = function( url )
+{
+	return( url ) ;
+} ;
 
 var assertFileExists   = function( infile )
 {
-    var instr = infile.toString( ) ;
-
-    if ( !fs.existsSync( instr ) )
+    if ( infile != null )
     {
-	console.log( "%s does not exist. Exiting.", instr ) ;
-	process.exit( 1 ) ; // http://nodejs.org/api/process.html#process_process_exit_code
+    	var instr = infile.toString( ) ;
+
+	if ( !fs.existsSync( instr ) )
+    	{
+		console.log( "%s does not exist. Exiting.", instr ) ;
+		process.exit( 1 ) ; // http://nodejs.org/api/process.html#process_process_exit_code
+    	}
+
+	return( instr ) ;
     }
 
-    return( instr ) ;
 
+    return( null ) ;
 } ;
 
-var cheerioHtmlFile    = function( htmlfile )
+var cheerioHtmlFile    = function( urldata, htmlfile )
 {
-    return( cheerio.load( fs.readFileSync( htmlfile ) ) ) ;
+    return( cheerio.load( urldata || fs.readFileSync( htmlfile ) ) ) ;
 } ;
 
 
@@ -55,9 +68,9 @@ var loadChecks         = function( checksfile )
     return( JSON.parse( fs.readFileSync( checksfile ) ) ) ;
 } ;
 
-var checkHtmlFile      = function( htmlfile, checksfile )
+var checkHtmlFile      = function( urldata, htmlfile, checksfile )
 {
-             $ = cheerioHtmlFile( htmlfile ) ;
+             $ = cheerioHtmlFile( urldata, htmlfile ) ;
     var checks = loadChecks( checksfile ).sort( ) ;
     var out    = {} ;
 
@@ -84,13 +97,29 @@ if ( require.main == module )
 {
     program
         .option( '-c --checks <check_file>', 'Path to checks.json', clone( assertFileExists ), CHECKSFILE_DEFAULT )
-        .option( '-f, --file <html_file>', 'Path to index.html', clone( assertFileExists ), HTMLFILE_DEFAULT )
+        //.option( '-f, --file <html_file>', 'Path to index.html', clone( assertFileExists ), HTMLFILE_DEFAULT )
+        .option( '-f, --file <html_file>', 'Path to index.html', clone( assertFileExists ), null )
+	.option( '-u, --url <url_address>', 'URL address', clone( assertURL ), null )
         .parse( process.argv ) ;
 
-    var checkJson = checkHtmlFile( program.file, program.checks ) ;
-    var outJson   = JSON.stringify( checkJson, null, 4 ) ;
+    if ( program.file )
+    {
+    	var checkJson = checkHtmlFile( null, program.file, program.checks ) ;
+    	var outJson   = JSON.stringify( checkJson, null, 4 ) ;
 
-    console.log( outJson ) ;
+    	console.log( outJson ) ;
+    }
+    else if ( program.url )
+    {
+	rest.get( program.url ).on( 'complete', function( data )
+		{
+
+		    	var checkJson = checkHtmlFile( data, null, program.checks ) ;
+    			var outJson   = JSON.stringify( checkJson, null, 4 ) ;
+
+    			console.log( outJson ) ;
+		} ) ;
+    }
 }
 else
 {
